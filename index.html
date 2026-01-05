@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>绝对公平的抽奖</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #0f172a;
+      --card: #1e293b;
+      --muted: #94a3b8;
+      --accent: #06b6d4;
+      --accent-strong: #0891b2;
+      --border: rgba(148, 163, 184, 0.25);
+      --shadow: 0 20px 80px rgba(0,0,0,0.35);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Inter", "PingFang SC", system-ui, -apple-system, sans-serif;
+      background: radial-gradient(circle at 20% 20%, rgba(14,165,233,0.08), transparent 25%),
+                  radial-gradient(circle at 80% 0%, rgba(45,212,191,0.08), transparent 30%),
+                  var(--bg);
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 12px 48px;
+    }
+    .page {
+      width: min(1100px, 100%);
+      display: grid;
+      gap: 18px;
+    }
+    header {
+      background: linear-gradient(135deg, rgba(6,182,212,0.18), rgba(45,212,191,0.07)), var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 22px 22px 18px;
+      box-shadow: var(--shadow);
+    }
+    h1 {
+      margin: 0;
+      font-size: 28px;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    h1 span {
+      font-size: 14px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    p.lead {
+      margin: 10px 0 0;
+      color: #cbd5e1;
+      line-height: 1.6;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 12px;
+    }
+    .card {
+      background: rgba(30, 41, 59, 0.9);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+    .card h2 {
+      margin: 0 0 6px;
+      font-size: 18px;
+      letter-spacing: -0.01em;
+    }
+    .muted { color: var(--muted); }
+    .hash-box, .seed-box {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      word-break: break-all;
+      color: #e2e8f0;
+    }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      background: rgba(14,165,233,0.12);
+      border-radius: 999px;
+      font-size: 12px;
+      color: #7dd3fc;
+      border: 1px solid rgba(125,211,252,0.3);
+    }
+    form {
+      display: grid;
+      gap: 10px;
+    }
+    label { font-weight: 600; font-size: 14px; }
+    input, button, textarea {
+      font: inherit;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 12px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.6);
+      color: #e2e8f0;
+      outline: none;
+      transition: border 0.2s ease, box-shadow 0.2s ease;
+    }
+    input[type="text"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.2);
+    }
+    button {
+      border: none;
+      border-radius: 12px;
+      padding: 11px 14px;
+      cursor: pointer;
+      transition: transform 0.12s ease, box-shadow 0.2s ease, background 0.2s ease;
+      color: #0b1224;
+      font-weight: 700;
+    }
+    button.primary {
+      background: linear-gradient(135deg, #22d3ee, #06b6d4);
+      box-shadow: 0 15px 40px rgba(6,182,212,0.35);
+    }
+    button.secondary {
+      background: rgba(148, 163, 184, 0.15);
+      color: #e2e8f0;
+      border: 1px solid var(--border);
+    }
+    button:active { transform: scale(0.98); }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    ul.participants {
+      list-style: none;
+      padding: 0;
+      margin: 10px 0 0;
+      display: grid;
+      gap: 10px;
+    }
+    .participant {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(15, 23, 42, 0.6);
+      display: grid;
+      gap: 6px;
+    }
+    .participant strong { font-size: 15px; }
+    .result {
+      border: 1px solid rgba(16,185,129,0.35);
+      background: linear-gradient(135deg, rgba(34,197,94,0.08), rgba(16,185,129,0.05));
+      border-radius: 12px;
+      padding: 12px;
+    }
+    .log {
+      display: grid;
+      gap: 8px;
+      margin: 10px 0 0;
+      font-size: 13px;
+      color: #cbd5e1;
+    }
+    .chip-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .chip-row .chip { padding: 4px 9px; border-radius: 999px; background: rgba(148,163,184,0.15); border: 1px solid var(--border); }
+    .copy-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: #cbd5e1;
+      border-radius: 10px;
+      padding: 8px 10px;
+    }
+    @media (max-width: 640px) {
+      body { padding: 18px 10px 30px; }
+      h1 { font-size: 23px; flex-direction: column; align-items: flex-start; }
+      .actions { flex-direction: column; }
+      button { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>绝对公平的抽奖 <span>公开可验证 · 全流程透明</span></h1>
+      <p class="lead">这是一张<strong>零后门</strong>的抽奖凭证页：先公布服务端种子哈希，再收集所有参与者的公开种子，最后一次性揭晓服务端种子并基于确定性算法生成结果。所有人都能复刻流程、交叉验证，不依赖任何后台。</p>
+    </header>
+
+    <section class="card">
+      <div class="chip-row">
+        <div class="tag">阶段 1 · 承诺（Commit）</div>
+        <span class="muted">系统先生成一段秘密种子，仅公布其 SHA-256 哈希。</span>
+      </div>
+      <h2>服务端承诺</h2>
+      <div class="hash-box" id="server-hash">生成中…</div>
+      <div class="actions" style="margin-top: 10px;">
+        <button class="copy-btn" id="copy-hash">复制哈希</button>
+        <button class="secondary" id="regenerate-server">重新生成承诺</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="chip-row">
+        <div class="tag">阶段 2 · 公共输入</div>
+        <span class="muted">每个参与者提交自己的公开种子，后续用于共同决定随机性。</span>
+      </div>
+      <h2>添加参与者</h2>
+      <form id="participant-form">
+        <div>
+          <label for="name">昵称 / 标识</label>
+          <input id="name" type="text" placeholder="例：Alice" autocomplete="off" />
+        </div>
+        <div>
+          <label for="seed">公开种子（可自行设置，也可使用随机值）</label>
+          <div class="actions" style="gap:8px;">
+            <input id="seed" type="text" placeholder="16~64 位字符串，公开透明" autocomplete="off" style="flex:1; min-width: 0;" />
+            <button class="secondary" type="button" id="random-seed">随机种子</button>
+          </div>
+        </div>
+        <button class="primary" type="submit">添加到奖池</button>
+      </form>
+      <ul class="participants" id="participants"></ul>
+    </section>
+
+    <section class="card">
+      <div class="chip-row">
+        <div class="tag">阶段 3 · 揭晓 & 抽取</div>
+        <span class="muted">系统公开承诺的原始种子，结合所有参与者种子生成可复现的随机序列。</span>
+      </div>
+      <div class="actions" style="margin: 10px 0 12px;">
+        <button class="primary" id="reveal-draw">揭晓并抽奖</button>
+        <button class="secondary" id="reset-round">新一轮</button>
+      </div>
+      <div id="result-area" class="result" style="display:none;"></div>
+      <div class="log" id="log"></div>
+    </section>
+  </div>
+
+  <script>
+    const state = {
+      serverSeed: '',
+      serverHash: '',
+      participants: [],
+      revealed: false,
+      combinedHash: '',
+      winner: null,
+    };
+
+    const serverHashBox = document.getElementById('server-hash');
+    const participantsList = document.getElementById('participants');
+    const logBox = document.getElementById('log');
+    const resultArea = document.getElementById('result-area');
+
+    const encoder = new TextEncoder();
+
+    function randomHex(bytes = 16) {
+      const array = new Uint8Array(bytes);
+      crypto.getRandomValues(array);
+      return Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function sha256Hex(message) {
+      const data = encoder.encode(message);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function prepareServerSeed() {
+      state.serverSeed = randomHex(24);
+      state.serverHash = await sha256Hex(state.serverSeed);
+      state.revealed = false;
+      renderServerHash();
+      logBox.innerHTML = '';
+      resultArea.style.display = 'none';
+    }
+
+    function renderServerHash() {
+      serverHashBox.textContent = state.serverHash;
+    }
+
+    function renderParticipants() {
+      participantsList.innerHTML = '';
+      state.participants.forEach((p, idx) => {
+        const li = document.createElement('li');
+        li.className = 'participant';
+        li.innerHTML = `
+          <div><strong>${idx + 1}. ${p.name}</strong></div>
+          <div class="muted">公开种子：${p.seed}</div>
+          <div class="muted">种子 SHA-256：${p.seedHash}</div>
+        `;
+        participantsList.appendChild(li);
+      });
+    }
+
+    function appendLog(line) {
+      const div = document.createElement('div');
+      div.textContent = line;
+      logBox.appendChild(div);
+    }
+
+    function createDeterministicRng(seedHex) {
+      let stateNum = parseInt(seedHex.slice(0, 8), 16) >>> 0;
+      if (!stateNum) stateNum = 0x9e3779b9; // 黄金比例常数，避免全 0
+      return () => {
+        stateNum ^= stateNum << 13;
+        stateNum >>>= 0;
+        stateNum ^= stateNum >> 17;
+        stateNum >>>= 0;
+        stateNum ^= stateNum << 5;
+        stateNum >>>= 0;
+        return stateNum / 0xffffffff;
+      };
+    }
+
+    async function handleAddParticipant(event) {
+      event.preventDefault();
+      const nameInput = document.getElementById('name');
+      const seedInput = document.getElementById('seed');
+      const name = nameInput.value.trim() || `用户 ${state.participants.length + 1}`;
+      const seed = (seedInput.value.trim() || randomHex(12)).slice(0, 128);
+      const seedHash = await sha256Hex(seed);
+      state.participants.push({ name, seed, seedHash });
+      nameInput.value = '';
+      seedInput.value = '';
+      renderParticipants();
+    }
+
+    function fisherYatesShuffle(arr, rng) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    async function revealAndDraw() {
+      if (!state.participants.length) {
+        alert('请至少添加一位参与者。');
+        return;
+      }
+      if (state.revealed) {
+        appendLog('当前轮次已揭晓，若需重来请点击“新一轮”。');
+        return;
+      }
+      state.revealed = true;
+
+      // 组合所有公开输入
+      const combinedMaterial = `${state.serverSeed}|${state.participants.map(p => p.seed).sort().join('|')}`;
+      state.combinedHash = await sha256Hex(combinedMaterial);
+
+      const rng = createDeterministicRng(state.combinedHash);
+      const order = fisherYatesShuffle(state.participants, rng);
+      const winner = order[0];
+      state.winner = winner;
+
+      resultArea.style.display = 'block';
+      resultArea.innerHTML = `
+        <div><strong>🎯 中奖者：</strong> ${winner.name}</div>
+        <div class="muted" style="margin-top:6px;">结果可复现：对下列数据重新执行算法可得到相同顺序。</div>
+        <div class="seed-box" style="margin-top:10px;">
+          <div><strong>服务端原始种子：</strong> ${state.serverSeed}</div>
+          <div><strong>服务端种子哈希：</strong> ${state.serverHash}</div>
+          <div><strong>组合种子哈希：</strong> ${state.combinedHash}</div>
+        </div>
+      `;
+
+      logBox.innerHTML = '';
+      appendLog('1) 校验：SHA-256(服务端种子) 是否等于公布的承诺哈希。');
+      appendLog('2) 合成：按字典序排列所有参与者种子，用 "|" 拼接到服务端种子后，再做 SHA-256。');
+      appendLog('3) 随机：将组合哈希前 8 个十六进制字符转换为 32 位整数，作为 xorshift32 的初始状态。');
+      appendLog('4) 洗牌：使用该确定性随机序列执行 Fisher-Yates 洗牌，结果顺序即为抽奖顺序。');
+      appendLog(`本轮抽奖顺序：${order.map(p => p.name).join(' → ')}`);
+    }
+
+    function resetRound() {
+      state.participants = [];
+      state.revealed = false;
+      state.combinedHash = '';
+      state.winner = null;
+      renderParticipants();
+      prepareServerSeed();
+    }
+
+    document.getElementById('participant-form').addEventListener('submit', handleAddParticipant);
+    document.getElementById('random-seed').addEventListener('click', () => {
+      document.getElementById('seed').value = randomHex(12);
+    });
+    document.getElementById('reveal-draw').addEventListener('click', revealAndDraw);
+    document.getElementById('reset-round').addEventListener('click', resetRound);
+    document.getElementById('regenerate-server').addEventListener('click', prepareServerSeed);
+    document.getElementById('copy-hash').addEventListener('click', () => {
+      navigator.clipboard.writeText(state.serverHash)
+        .then(() => appendLog('已复制当前服务端承诺哈希。'))
+        .catch(() => appendLog('复制失败，请手动选择并复制哈希。'));
+    });
+
+    // 初始化
+    prepareServerSeed();
+  </script>
+</body>
+</html>
